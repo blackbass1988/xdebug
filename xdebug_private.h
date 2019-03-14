@@ -234,6 +234,7 @@ typedef struct
 
 
 xdebug_hash* xdebug_declared_var_hash_from_llist(xdebug_llist *list);
+void xdebug_init_debugger(TSRMLS_D);
 
 #endif
 

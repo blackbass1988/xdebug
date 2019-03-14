@@ -244,8 +244,7 @@ static xdebug_str *make_message(xdebug_con *context, xdebug_xml_node *message TS
 
 	xdebug_xml_return_node(message, &xml_message);
 	if (XG(remote_log_file)) {
-		long pid = getpid();
-		fprintf(XG(remote_log_file), "[%ld] -> %s\n[%ld]\n", pid, xml_message.d, pid);
+		fprintf(XG(remote_log_file), "-> %s\n\n", xml_message.d);
 		fflush(XG(remote_log_file));
 	}
 
@@ -1082,7 +1081,7 @@ DBGP_FUNC(detach)
 	xdebug_xml_add_attribute(*retval, "status", xdebug_dbgp_status_strings[DBGP_STATUS_STOPPED]);
 	xdebug_xml_add_attribute(*retval, "reason", xdebug_dbgp_reason_strings[XG(reason)]);
 	XG(context).handler->remote_deinit(&(XG(context)));
-	xdebug_mark_debug_connection_not_active();
+	XG(remote_enabled) = 0;
 	XG(stdout_mode) = 0;
 }
 
@@ -2076,8 +2075,7 @@ static int xdebug_dbgp_parse_option(xdebug_con *context, char* line, int flags, 
 	xdebug_xml_node *error;
 
 	if (XG(remote_log_file)) {
-		long pid = getpid();
-		fprintf(XG(remote_log_file), "[%ld] <- %s\n", pid, line);
+		fprintf(XG(remote_log_file), "<- %s\n", line);
 		fflush(XG(remote_log_file));
 	}
 	res = xdebug_dbgp_parse_cmd(line, (char**) &cmd, (xdebug_dbgp_arg**) &args);
@@ -2280,7 +2278,7 @@ int xdebug_dbgp_deinit(xdebug_con *context)
 	xdebug_var_export_options *options;
 	TSRMLS_FETCH();
 
-	if (xdebug_is_debug_connection_active_for_current_pid()) {
+	if (XG(remote_enabled)) {
 		XG(status) = DBGP_STATUS_STOPPING;
 		XG(reason) = DBGP_REASON_OK;
 		response = xdebug_xml_node_init("response");
@@ -2301,7 +2299,7 @@ int xdebug_dbgp_deinit(xdebug_con *context)
 		xdebug_dbgp_cmdloop(context, 0 TSRMLS_CC);
 	}
 
-	if (xdebug_is_debug_connection_active_for_current_pid()) {
+	if (XG(remote_enabled)) {
 		options = (xdebug_var_export_options*) context->options;
 		xdfree(options->runtime);
 		xdfree(context->options);
@@ -2313,7 +2311,8 @@ int xdebug_dbgp_deinit(xdebug_con *context)
 		xdfree(context->buffer);
 	}
 
-	xdebug_mark_debug_connection_not_active();
+	xdebug_close_log(TSRMLS_C);
+	XG(remote_enabled) = 0;
 	return 1;
 }
 
